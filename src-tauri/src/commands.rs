@@ -104,7 +104,7 @@ pub async fn install(
     let pkg = state.package(&package_id)?;
     // One installer at a time, enforced here too (not just in the UI).
     if state.installing.swap(true, Ordering::SeqCst) {
-        return Err("another install is already running".into());
+        return Err("the previous installer is still running — wait for it to finish, then queue this again".into());
     }
     let kit = state.kit.clone();
     let logger = Arc::clone(&state.logger);

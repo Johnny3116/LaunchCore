@@ -9,10 +9,10 @@
  * Safe to re-run.
  */
 import { spawnSync } from "node:child_process";
-import { createPrivateKey, createPublicKey } from "node:crypto";
-import { existsSync, readFileSync } from "node:fs";
+import { createPublicKey } from "node:crypto";
+import { existsSync } from "node:fs";
 import { resolve } from "node:path";
-import { keygen, signCatalog, trustPublicKey } from "./catalog-sign";
+import { flag, keygen, loadPrivate, signCatalog, trustPublicKey } from "./catalog-sign";
 import { DEFAULT_PRIVATE, PUB_PATH, REPO_ROOT, rawPublicB64, readTrustedKeys } from "./lib/kit";
 
 const isWin = process.platform === "win32";
@@ -30,8 +30,7 @@ function run(cmd: string, args: string[]): string | null {
 }
 
 const args = process.argv.slice(2);
-const pi = args.indexOf("--private");
-const privPath = resolve(pi >= 0 && args[pi + 1] ? args[pi + 1]! : DEFAULT_PRIVATE);
+const privPath = resolve(flag(args, "--private") ?? DEFAULT_PRIVATE);
 
 console.log("Toolchain");
 ok(`bun ${Bun.version}`);
@@ -59,7 +58,7 @@ if (!existsSync(resolve(REPO_ROOT, "node_modules"))) bad("dependencies not insta
 console.log("\nSigning key");
 const trusted = readTrustedKeys();
 if (existsSync(privPath)) {
-  const pub = rawPublicB64(createPublicKey(createPrivateKey(readFileSync(privPath))));
+  const pub = rawPublicB64(createPublicKey(loadPrivate(privPath)));
   if (trustPublicKey(pub)) ok(`added your existing key to ${PUB_PATH} — commit that file`);
   else ok(`using ${privPath} (already trusted)`);
 } else if (trusted.length > 0) {

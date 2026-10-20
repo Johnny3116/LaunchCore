@@ -12,7 +12,7 @@
  * Never overwrites: --out must not exist or must be empty.
  */
 import { spawnSync } from "node:child_process";
-import { copyFileSync, existsSync, mkdirSync, readdirSync, statSync } from "node:fs";
+import { constants, copyFileSync, existsSync, mkdirSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import {
   PUB_PATH,
@@ -84,19 +84,34 @@ if (args.includes("--no-build")) {
 }
 
 console.log(`3/4  assembling ${out}…`);
+// COPYFILE_EXCL: never overwrite anything, even if something appeared in --out during the build.
+const copy = (from: string, to: string) => {
+  try {
+    copyFileSync(from, to, constants.COPYFILE_EXCL);
+  } catch (e) {
+    fail(`refusing to overwrite ${to} (${(e as Error).message})`);
+  }
+};
+const RESERVED = new Set([exeName, "catalog.json", "catalog.json.sig"].map((n) => n.toLowerCase()));
 mkdirSync(out, { recursive: true });
-copyFileSync(exe, join(out, exeName));
-copyFileSync(source, join(out, "catalog.json")); // byte-exact: the signature covers these bytes
-copyFileSync(`${source}.sig`, join(out, "catalog.json.sig"));
+copy(exe, join(out, exeName));
+copy(source, join(out, "catalog.json")); // byte-exact: the signature covers these bytes
+copy(`${source}.sig`, join(out, "catalog.json.sig"));
 let bytes = statSync(exe).size;
 const srcKit = dirname(source);
+const copied = new Set<string>();
 for (const p of (json as { packages: { installer: { type: string; path?: string } }[] }).packages) {
   if (p.installer.type !== "msi" && p.installer.type !== "exe") continue;
+  const rel = toNative(p.installer.path!);
+  const key = rel.toLowerCase();
+  if (RESERVED.has(key)) fail(`installer path '${p.installer.path}' collides with a kit file — move it under packages\\`);
+  if (copied.has(key)) continue; // two packages sharing one installer
+  copied.add(key);
   const from = resolveInKit(srcKit, p.installer.path!);
   if (!from.ok) fail(`unexpected: ${p.installer.path} ${from.why}`);
-  const to = join(out, toNative(p.installer.path!));
+  const to = join(out, rel);
   mkdirSync(dirname(to), { recursive: true });
-  copyFileSync(from.path, to);
+  copy(from.path, to);
   bytes += statSync(to).size;
 }
 

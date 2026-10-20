@@ -32,7 +32,7 @@ import {
   validated,
 } from "./lib/kit";
 
-function flag(args: string[], name: string): string | undefined {
+export function flag(args: string[], name: string): string | undefined {
   const i = args.indexOf(name);
   if (i === -1) return undefined;
   const v = args[i + 1];
@@ -53,7 +53,7 @@ function positional(args: string[], valueFlags: string[]): string | undefined {
   return undefined;
 }
 
-function loadPrivate(path: string): KeyObject {
+export function loadPrivate(path: string): KeyObject {
   if (!existsSync(path)) fail(`private key not found: ${path}`);
   const key = createPrivateKey(readFileSync(path));
   if (key.asymmetricKeyType !== "ed25519") fail("private key is not Ed25519");
@@ -64,8 +64,11 @@ function loadPrivate(path: string): KeyObject {
 export function trustPublicKey(pubB64: string): boolean {
   if (readTrustedKeys().includes(pubB64)) return false;
   mkdirSync(dirname(PUB_PATH), { recursive: true });
-  const header = existsSync(PUB_PATH) ? "" : "# LaunchCore trusted catalog signing keys (raw Ed25519, base64). One per line.\n";
-  appendFileSync(PUB_PATH, `${header}# added ${new Date().toISOString()}\n${pubB64}\n`);
+  const existing = existsSync(PUB_PATH) ? readFileSync(PUB_PATH, "utf8") : "";
+  const header = existing ? "" : "# LaunchCore trusted catalog signing keys (raw Ed25519, base64). One per line.\n";
+  // Editors often drop the final newline; without this the new comment would glue onto the last key.
+  const sep = existing && !existing.endsWith("\n") ? "\n" : "";
+  appendFileSync(PUB_PATH, `${sep}${header}# added ${new Date().toISOString()}\n${pubB64}\n`);
   return true;
 }
 

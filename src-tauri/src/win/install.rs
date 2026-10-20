@@ -47,8 +47,6 @@ impl Ctx<'_> {
 }
 
 pub fn install(pkg: &Package, ctx: &Ctx) -> InstallOutcome {
-    // ShellExecuteEx may hand off to COM-based shell extensions; Microsoft requires COM initialized.
-    let _com = ComGuard::init();
     let start = Instant::now();
     let ms = || start.elapsed().as_millis() as u64;
     let fail = |reason: String| InstallOutcome::Failed { exit_code: None, reason, duration_ms: ms(), still_running: false };
@@ -205,8 +203,13 @@ fn launch_and_wait(pkg: &Package, ctx: &Ctx, file: &Path, params: &str, cwd: &Pa
         nShow: SW_HIDE.0,
         ..Default::default()
     };
+    // ShellExecuteEx may hand off to COM-based shell extensions, so COM must be initialized for the
+    // call. Scoped to the call only: an STA must pump messages, and we're about to block in a wait.
+    let com = ComGuard::init();
     // SAFETY: all strings outlive the call; struct is fully initialized.
-    if let Err(e) = unsafe { ShellExecuteExW(&mut info) } {
+    let launched = unsafe { ShellExecuteExW(&mut info) };
+    drop(com);
+    if let Err(e) = launched {
         let reason = if e.code() == ERROR_CANCELLED.to_hresult() {
             "UAC prompt was declined — nothing was installed".to_string()
         } else {
