@@ -34,7 +34,14 @@ export type InstallPhase = "verifying" | "waiting-elevation" | "installing";
 
 export type InstallOutcome =
   | { kind: "success"; exitCode: number; rebootRequired: boolean; durationMs: number }
-  | { kind: "failed"; exitCode?: number; reason: string; durationMs: number }
+  | {
+      kind: "failed";
+      exitCode?: number;
+      reason: string;
+      durationMs: number;
+      /** Timed out and still running. The queue pauses until it exits. */
+      stillRunning?: boolean;
+    }
   | { kind: "hash-mismatch"; expected: string; actual: string };
 
 export type InstallEvent =

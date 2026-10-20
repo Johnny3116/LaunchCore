@@ -162,6 +162,11 @@ export function useLaunchCore(service: LaunchCoreService) {
                 ? "blocked"
                 : "failed";
           dispatch({ type: "item", key, patch: { state: finalState, outcome, finishedAt: Date.now() } });
+          if (outcome.kind === "failed" && outcome.stillRunning) {
+            // Starting another installer now would just fail with 1618 (install already in progress).
+            dispatch({ type: "skip-pending" });
+            log("warn", `${pkg.name} is still running after its timeout. Remaining queue skipped — re-queue once it finishes.`, pkg.id);
+          }
           if (outcome.kind === "hash-mismatch") {
             log("error", `${pkg.name} BLOCKED — installer hash does not match catalog. Not executed.`, pkg.id);
           }
