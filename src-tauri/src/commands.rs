@@ -15,7 +15,7 @@ pub struct AppState {
     pub kit: PathBuf,
     pub logger: Arc<Logger>,
     pub catalog: Mutex<Option<Catalog>>,
-    pub installing: AtomicBool,
+    pub installing: Arc<AtomicBool>,
 }
 
 impl AppState {
@@ -24,7 +24,7 @@ impl AppState {
             kit: kit::kit_dir(),
             logger: Arc::new(Logger::new()),
             catalog: Mutex::new(None),
-            installing: AtomicBool::new(false),
+            installing: Arc::new(AtomicBool::new(false)),
         }
     }
 
@@ -108,6 +108,7 @@ pub async fn install(
     }
     let kit = state.kit.clone();
     let logger = Arc::clone(&state.logger);
+    let busy = Arc::clone(&state.installing);
     logger.log(LogLevel::Info, Some(&pkg.id), &format!("Install requested: {} {}", pkg.name, pkg.version));
 
     let result = tauri::async_runtime::spawn_blocking(move || {
@@ -116,18 +117,27 @@ pub async fn install(
         };
         #[cfg(windows)]
         {
-            let ctx = crate::win::install::Ctx { kit: &kit, logger: &logger, emit: &emit };
+            let ctx = crate::win::install::Ctx { kit: &kit, logger: &logger, emit: &emit, busy: &busy };
             crate::win::install::install(&pkg, &ctx)
         }
         #[cfg(not(windows))]
         {
-            let _ = (&kit, &logger, &emit);
-            InstallOutcome::Failed { exit_code: None, reason: "installing is only supported on Windows".into(), duration_ms: 0 }
+            let _ = (&kit, &logger, &emit, &busy);
+            InstallOutcome::Failed {
+                exit_code: None,
+                reason: "installing is only supported on Windows".into(),
+                duration_ms: 0,
+                still_running: false,
+            }
         }
     })
     .await
     .map_err(|e| format!("install task failed: {e}"));
 
-    state.installing.store(false, Ordering::SeqCst);
+    // After a timeout the watcher thread owns the flag and clears it when the installer exits.
+    let still_running = matches!(&result, Ok(InstallOutcome::Failed { still_running: true, .. }));
+    if !still_running {
+        state.installing.store(false, Ordering::SeqCst);
+    }
     result
 }

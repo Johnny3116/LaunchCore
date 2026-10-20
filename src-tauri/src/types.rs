@@ -86,6 +86,9 @@ pub enum InstallOutcome {
         exit_code: Option<i64>,
         reason: String,
         duration_ms: u64,
+        /// Timed out: the installer is still running and the queue must not continue.
+        #[serde(skip_serializing_if = "std::ops::Not::not")]
+        still_running: bool,
     },
     HashMismatch { expected: String, actual: String },
 }
