@@ -127,10 +127,10 @@ $env:LAUNCHCORE_KIT_DIR = "$PWD\examples\test-kit"
 bun run tauri dev
 
 cargo test -p launchcore-core                 # core logic tests (any OS)
-bun run tauri build                           # release exe: target\release\launchcore.exe
+bun run tauri build                           # release exe: target\release\LaunchCore.exe
 ```
 
-To deploy a kit, copy `launchcore.exe`, `catalog.json`, `catalog.json.sig` and `packages\` into one folder. Release builds always read the catalog from the exe's own folder.
+To deploy a kit, copy `LaunchCore.exe`, `catalog.json`, `catalog.json.sig` and `packages\` into one folder. Release builds always read the catalog from the exe's own folder.
 
 Icons were generated from `app-icon.png` with `bun run tauri icon app-icon.png`.
 
