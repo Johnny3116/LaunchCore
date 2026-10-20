@@ -44,25 +44,27 @@ fn default_category() -> String {
 pub enum Installer {
     Msi(LocalInstaller),
     Exe(LocalInstaller),
+    /// PowerShell script, run elevated with `-ExecutionPolicy Bypass` for that process only.
+    Ps1(LocalInstaller),
     Winget(WingetInstaller),
 }
 
 impl Installer {
     pub fn success_codes(&self) -> &[i64] {
         match self {
-            Installer::Msi(l) | Installer::Exe(l) => &l.success_codes,
+            Installer::Msi(l) | Installer::Exe(l) | Installer::Ps1(l) => &l.success_codes,
             Installer::Winget(w) => &w.success_codes,
         }
     }
     pub fn reboot_codes(&self) -> &[i64] {
         match self {
-            Installer::Msi(l) | Installer::Exe(l) => &l.reboot_codes,
+            Installer::Msi(l) | Installer::Exe(l) | Installer::Ps1(l) => &l.reboot_codes,
             Installer::Winget(w) => &w.reboot_codes,
         }
     }
     pub fn timeout_minutes(&self) -> u32 {
         match self {
-            Installer::Msi(l) | Installer::Exe(l) => l.timeout_minutes,
+            Installer::Msi(l) | Installer::Exe(l) | Installer::Ps1(l) => l.timeout_minutes,
             Installer::Winget(w) => w.timeout_minutes,
         }
     }
@@ -194,9 +196,12 @@ pub fn validate(c: &Catalog) -> Vec<String> {
             }
         }
         match &p.installer {
-            Installer::Msi(l) | Installer::Exe(l) => {
+            Installer::Msi(l) | Installer::Exe(l) | Installer::Ps1(l) => {
                 if let Err(msg) = check_relative_path(&l.path) {
                     e.push(format!("{}: {msg}", at("installer.path")));
+                }
+                if matches!(p.installer, Installer::Ps1(_)) && !l.path.to_ascii_lowercase().ends_with(".ps1") {
+                    e.push(format!("{}: ps1 installers must point at a .ps1 file", at("installer.path")));
                 }
                 if !(l.sha256.len() == 64 && l.sha256.chars().all(|ch| ch.is_ascii_hexdigit())) {
                     e.push(format!("{}: must be a 64-character hex SHA-256 hash", at("installer.sha256")));
@@ -336,6 +341,20 @@ mod tests {
             _ => panic!("expected winget"),
         }
         assert_eq!(c.packages[1].category, "General");
+    }
+
+    #[test]
+    fn parses_ps1_and_requires_ps1_extension() {
+        let ps1 = GOOD.replace(
+            r#""type": "msi", "path": "packages/7zip/7z.msi""#,
+            r#""type": "ps1", "path": "packages/7zip/setup.ps1""#,
+        );
+        let c = parse_catalog(ps1.as_bytes()).expect("valid");
+        assert!(matches!(c.packages[0].installer, Installer::Ps1(_)));
+
+        let wrong_ext = GOOD.replace(r#""type": "msi""#, r#""type": "ps1""#);
+        let err = parse_catalog(wrong_ext.as_bytes()).unwrap_err().messages();
+        assert!(err.iter().any(|m| m.contains(".ps1 file")), "{err:?}");
     }
 
     #[test]

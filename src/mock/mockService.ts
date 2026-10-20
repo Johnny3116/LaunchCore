@@ -86,7 +86,9 @@ export class MockService implements LaunchCoreService {
         ? `winget install --id ${inst.packageId} -e${inst.pinVersion ? ` --version ${pkg.version}` : ""} --scope ${inst.scope} --silent`
         : inst.type === "msi"
           ? `msiexec.exe /i "<staged>\\${inst.path.split(/[\\/]/).pop()}" ${inst.args} /l*v "<log>"`
-          : `"<staged>\\${inst.path.split(/[\\/]/).pop()}" ${inst.args}`;
+          : inst.type === "ps1"
+            ? `powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -File "<staged>\\${inst.path.split(/[\\/]/).pop()}" ${inst.args}`
+            : `"<staged>\\${inst.path.split(/[\\/]/).pop()}" ${inst.args}`;
     log(`Running: ${cmd}`);
     await sleep(2500 + Math.random() * 2500);
 

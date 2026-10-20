@@ -6,6 +6,7 @@ import { AppGrid } from "./components/AppGrid";
 import { QueuePanel } from "./components/QueuePanel";
 import { LogView } from "./components/LogView";
 import { ConfirmDialog } from "./components/ConfirmDialog";
+import logo from "./assets/logo.png";
 
 type View = "apps" | "log";
 
@@ -43,9 +44,7 @@ export default function App({ service, isMock = false }: { service: LaunchCoreSe
     <div className="min-h-screen bg-background text-foreground">
       <header className="flex items-center justify-between gap-4 border-b border-border px-8 py-5">
         <div className="flex items-center gap-3">
-          <div className="grid h-9 w-9 place-items-center rounded-md bg-primary font-mono text-lg font-bold text-primary-foreground">
-            L
-          </div>
+          <img src={logo} alt="" className="h-9 w-9" />
           <div>
             <h1 className="font-display text-xl font-semibold tracking-tight">LaunchCore</h1>
             <p className="text-xs text-muted-foreground">{catalog?.name ?? "Windows software catalog"}</p>

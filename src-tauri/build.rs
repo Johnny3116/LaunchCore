@@ -5,6 +5,8 @@ fn main() {
     // with instructions rather than shipping a binary that trusts nothing (or anything).
     let keys = Path::new("keys/catalog.pub");
     println!("cargo:rerun-if-changed=keys/catalog.pub");
+    // Declaring any rerun-if-changed narrows Cargo's watch list, so name the icon explicitly too.
+    println!("cargo:rerun-if-changed=icons/icon.ico");
     let usable = std::fs::read_to_string(keys)
         .map(|t| t.lines().any(|l| !l.trim().is_empty() && !l.trim().starts_with('#')))
         .unwrap_or(false);

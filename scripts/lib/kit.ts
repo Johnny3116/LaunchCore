@@ -84,7 +84,7 @@ export function localInstallers(json: unknown): LocalRef[] {
   return pkgs.flatMap((p) => {
     const pkg = p as { id?: unknown; installer?: { type?: unknown; path?: unknown; sha256?: unknown } };
     const t = pkg.installer?.type;
-    if ((t !== "msi" && t !== "exe") || typeof pkg.installer?.path !== "string") return [];
+    if ((t !== "msi" && t !== "exe" && t !== "ps1") || typeof pkg.installer?.path !== "string") return [];
     return [{ id: String(pkg.id ?? "?"), path: pkg.installer.path, sha256: String(pkg.installer.sha256 ?? "") }];
   });
 }
