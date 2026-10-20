@@ -9,14 +9,21 @@ edition = "2021"
 tauri-build = { version = "=2.7.3", features = [] }
 
 [dependencies]
+launchcore-core = { path = "../crates/launchcore-core" }
 tauri = { version = "=2.12.4", features = [] }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
+thiserror = "=2.0.21"
 
-[profile.release]
-# Portable exe: favor size. Lives on flash drives and shares.
-codegen-units = 1
-lto = true
-opt-level = "s"
-panic = "abort"
-strip = true
+[target.'cfg(windows)'.dependencies]
+windows = { version = "=0.62.2", features = [
+  "Win32_Foundation",
+  "Win32_Storage_FileSystem",
+  "Win32_System_ApplicationInstallationAndServicing",
+  "Win32_System_Environment",
+  "Win32_System_Registry",
+  "Win32_System_SystemInformation",
+  "Win32_System_Threading",
+  "Win32_UI_Shell",
+  "Win32_UI_WindowsAndMessaging",
+] }

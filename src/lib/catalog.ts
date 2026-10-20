@@ -25,17 +25,43 @@ const guid = z
   .string()
   .regex(/^\{[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\}$/, "must be a {GUID}");
 
-export const InstallerSchema = z.object({
-  type: z.enum(["msi", "exe"]),
+const exitCodes = z.array(z.number().int());
+const timeoutMinutes = z.number().int().positive().max(240).default(30);
+/** No quotes, ampersands, pipes, redirects or other shell metacharacters. */
+const safeArgs = z
+  .string()
+  .max(1000)
+  .regex(/^[^"&|<>^`\r\n]*$/, 'must not contain " & | < > ^ ` or newlines');
+
+const localInstaller = {
   path: relativePath,
   sha256,
-  /** Silent args. For MSI, LaunchCore supplies `/i <path>`; put only extra args here (e.g. /qn /norestart). */
-  args: z.string().default(""),
+  /** Silent args. For MSI, LaunchCore supplies `/i <path>` and `/l*v <log>`; put only extra args here. */
+  args: safeArgs.default(""),
   /** Exit codes that count as success. 3010 = success, reboot required. */
-  successCodes: z.array(z.number().int()).nonempty().default([0, 3010]),
-  rebootCodes: z.array(z.number().int()).default([3010]),
-  timeoutMinutes: z.number().int().positive().max(240).default(30),
-});
+  successCodes: exitCodes.nonempty().default([0, 3010]),
+  rebootCodes: exitCodes.default([3010]),
+  timeoutMinutes,
+};
+
+/** winget package identifiers, e.g. "7zip.7zip", "Google.Chrome.EXE". */
+export const WINGET_ID = /^[A-Za-z0-9][A-Za-z0-9.+_-]{1,99}$/;
+
+export const InstallerSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("msi"), ...localInstaller }),
+  z.object({ type: z.literal("exe"), ...localInstaller }),
+  z.object({
+    /** Downloads from the internet via winget at install time. Needs winget + network on the target. */
+    type: z.literal("winget"),
+    packageId: z.string().regex(WINGET_ID, "must be a winget package id like Vendor.App"),
+    /** Install exactly the catalog version (--version). Recommended so the signed catalog pins what installs. */
+    pinVersion: z.boolean().default(true),
+    scope: z.enum(["machine", "user"]).default("machine"),
+    successCodes: exitCodes.nonempty().default([0]),
+    rebootCodes: exitCodes.default([]),
+    timeoutMinutes,
+  }),
+]);
 
 export const DetectionSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("msiProductCode"), productCode: guid }),
@@ -77,6 +103,13 @@ export const CatalogSchema = z
   .superRefine((cat, ctx) => {
     const seen = new Set<string>();
     cat.packages.forEach((p, i) => {
+      if (p.installer.type === "winget" && p.installer.pinVersion && !/^[A-Za-z0-9._+-]+$/.test(p.version)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["packages", i, "version"],
+          message: "pinned winget versions may only use letters, digits and . _ + -",
+        });
+      }
       if (seen.has(p.id)) {
         ctx.addIssue({ code: "custom", path: ["packages", i, "id"], message: `duplicate id '${p.id}'` });
       }

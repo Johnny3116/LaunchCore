@@ -22,6 +22,8 @@ export interface Environment {
   /** Local log file path — never on the kit itself, which may be read-only. */
   logPath: string;
   webview2Version?: string;
+  /** winget found for this user. winget packages fail fast without it. */
+  wingetAvailable: boolean;
 }
 
 export type CatalogLoad =

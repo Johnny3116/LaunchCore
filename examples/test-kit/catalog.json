@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "name": "LaunchCore Test Kit",
+  "packages": [
+    {
+      "id": "7zip",
+      "name": "7-Zip",
+      "version": "24.09",
+      "publisher": "Igor Pavlov",
+      "category": "Utilities",
+      "color": "#A2845E",
+      "installer": {
+        "type": "winget",
+        "packageId": "7zip.7zip",
+        "pinVersion": false,
+        "scope": "machine"
+      },
+      "detection": { "type": "file", "path": "%ProgramFiles%\\7-Zip\\7z.exe" }
+    }
+  ]
+}

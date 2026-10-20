@@ -85,7 +85,7 @@
       "publisher": "SIRE",
       "category": "Line of Business",
       "description": "Mock: simulates MSI fatal error 1603.",
-      "color": "#5E5CE6",
+      "color": "#AF52DE",
       "installer": {
         "type": "msi",
         "path": "packages/sire/FileCenterClient.msi",
@@ -113,6 +113,26 @@
       "detection": {
         "type": "registry",
         "key": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Google Chrome",
+        "valueName": "DisplayVersion"
+      }
+    },
+    {
+      "id": "powertoys",
+      "name": "Microsoft PowerToys",
+      "version": "0.85.1",
+      "publisher": "Microsoft",
+      "category": "Utilities",
+      "description": "Mock: winget-sourced package.",
+      "color": "#5E5CE6",
+      "installer": {
+        "type": "winget",
+        "packageId": "Microsoft.PowerToys",
+        "pinVersion": true,
+        "scope": "machine"
+      },
+      "detection": {
+        "type": "registry",
+        "key": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\PowerToys",
         "valueName": "DisplayVersion"
       }
     }

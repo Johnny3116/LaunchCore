@@ -12,5 +12,9 @@ const KNOWN: Record<number, string> = {
 };
 
 export function describeExitCode(code: number): string {
-  return KNOWN[code] ?? "unrecognized exit code";
+  const known = KNOWN[code];
+  if (known) return known;
+  // winget and some installers return HRESULT-style codes; hex is what you'd search for.
+  if (code > 0xffff || code < 0) return `0x${(code >>> 0).toString(16).toUpperCase().padStart(8, "0")}`;
+  return "unrecognized exit code";
 }

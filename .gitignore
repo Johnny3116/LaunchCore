@@ -8,3 +8,8 @@ Thumbs.db
 
 # Real installers never go in git — they live next to the built exe.
 packages/
+
+# Signing keys and artifacts
+*.key
+*.pem
+target/

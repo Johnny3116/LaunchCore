@@ -36,6 +36,7 @@ export class MockService implements LaunchCoreService {
       appDir: "E:\\LaunchCore",
       logPath: "C:\\ProgramData\\LaunchCore\\logs\\launchcore.log",
       webview2Version: "130.0.2849.56 (mock)",
+      wingetAvailable: true,
     };
   }
 
@@ -60,16 +61,20 @@ export class MockService implements LaunchCoreService {
     const log = (message: string, level: "info" | "warn" | "error" = "info") =>
       onEvent({ type: "log", level, message });
 
-    onEvent({ type: "phase", phase: "verifying" });
-    log(`Verifying SHA-256 of ${pkg.installer.path}`);
-    await sleep(700);
-
-    if (pkg.id === "vlc") {
-      const actual = "9f2c" + "e".repeat(56) + "b7a1";
-      log(`Hash mismatch — expected ${pkg.installer.sha256.slice(0, 12)}…, got ${actual.slice(0, 12)}…`, "error");
-      return { kind: "hash-mismatch", expected: pkg.installer.sha256, actual };
+    const inst = pkg.installer;
+    if (inst.type === "winget") {
+      log(`winget source — package ${inst.packageId}${inst.pinVersion ? ` @ ${pkg.version}` : ""} (hash verified by winget)`);
+    } else {
+      onEvent({ type: "phase", phase: "verifying" });
+      log(`Staging and verifying SHA-256 of ${inst.path}`);
+      await sleep(700);
+      if (pkg.id === "vlc") {
+        const actual = "9f2c" + "e".repeat(56) + "b7a1";
+        log(`Hash mismatch — expected ${inst.sha256.slice(0, 12)}…, got ${actual.slice(0, 12)}…`, "error");
+        return { kind: "hash-mismatch", expected: inst.sha256, actual };
+      }
+      log("Hash verified");
     }
-    log("Hash verified");
 
     onEvent({ type: "phase", phase: "waiting-elevation" });
     log("Requesting elevation (UAC)");
@@ -77,21 +82,23 @@ export class MockService implements LaunchCoreService {
 
     onEvent({ type: "phase", phase: "installing" });
     const cmd =
-      pkg.installer.type === "msi"
-        ? `msiexec.exe /i "${pkg.installer.path}" ${pkg.installer.args} /l*v "<log>"`
-        : `"${pkg.installer.path}" ${pkg.installer.args}`;
+      inst.type === "winget"
+        ? `winget install --id ${inst.packageId} -e${inst.pinVersion ? ` --version ${pkg.version}` : ""} --scope ${inst.scope} --silent`
+        : inst.type === "msi"
+          ? `msiexec.exe /i "<staged>\\${inst.path.split(/[\\/]/).pop()}" ${inst.args} /l*v "<log>"`
+          : `"<staged>\\${inst.path.split(/[\\/]/).pop()}" ${inst.args}`;
     log(`Running: ${cmd}`);
     await sleep(2500 + Math.random() * 2500);
 
     const exitCode = pkg.id === "sire-filecenter" ? 1603 : pkg.id === "acrobat-reader" ? 3010 : 0;
     const durationMs = Math.round(performance.now() - start);
 
-    if (!pkg.installer.successCodes.includes(exitCode)) {
+    if (!inst.successCodes.includes(exitCode)) {
       log(`Exited with ${exitCode} (${describeExitCode(exitCode)})`, "error");
       return { kind: "failed", exitCode, reason: describeExitCode(exitCode), durationMs };
     }
 
-    const rebootRequired = pkg.installer.rebootCodes.includes(exitCode);
+    const rebootRequired = inst.rebootCodes.includes(exitCode);
     log(`Exited with ${exitCode}${rebootRequired ? " — reboot required" : ""}`, rebootRequired ? "warn" : "info");
     installedThisSession.set(pkg.id, pkg.version);
     return { kind: "success", exitCode, rebootRequired, durationMs };
