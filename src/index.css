@@ -1,0 +1,72 @@
+@import "tailwindcss";
+
+/* Design tokens. Light by default, dark via system preference.
+   Utilitarian console look: dense, high-contrast status colors, monospace for paths and codes. */
+@theme {
+  --font-sans: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "Cascadia Mono", "Cascadia Code", Consolas, ui-monospace, monospace;
+
+  --color-bg: #f4f5f7;
+  --color-surface: #ffffff;
+  --color-surface-2: #eef0f3;
+  --color-border: #d9dde3;
+  --color-text: #15181d;
+  --color-muted: #5d6673;
+  --color-accent: #1f5fd1;
+  --color-accent-fg: #ffffff;
+  --color-ok: #1a7f37;
+  --color-warn: #9a6700;
+  --color-bad: #c62828;
+  --color-info: #1f5fd1;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #0f1216;
+    --color-surface: #161a20;
+    --color-surface-2: #1d222a;
+    --color-border: #2a313b;
+    --color-text: #e6e9ee;
+    --color-muted: #8b95a3;
+    --color-accent: #4c8dff;
+    --color-accent-fg: #0b0e12;
+    --color-ok: #3fb950;
+    --color-warn: #d29922;
+    --color-bad: #f85149;
+    --color-info: #4c8dff;
+  }
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
+  user-select: none; /* desktop-app feel; text fields and logs re-enable it */
+}
+
+.selectable {
+  user-select: text;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.spin {
+  animation: spin 1s linear infinite;
+}

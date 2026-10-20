@@ -1,0 +1,102 @@
+{
+  "schemaVersion": 1,
+  "name": "MOCK — Sheriff Standard Software",
+  "packages": [
+    {
+      "id": "7zip",
+      "name": "7-Zip",
+      "version": "24.09",
+      "publisher": "Igor Pavlov",
+      "category": "Utilities",
+      "description": "File archiver.",
+      "installer": {
+        "type": "msi",
+        "path": "packages/7zip/7z-x64.msi",
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000001",
+        "args": "/qn /norestart"
+      },
+      "detection": { "type": "msiProductCode", "productCode": "{00000000-0000-0000-0000-000000000001}" }
+    },
+    {
+      "id": "notepad-plus-plus",
+      "name": "Notepad++",
+      "version": "8.7.1",
+      "publisher": "Notepad++ Team",
+      "category": "Utilities",
+      "installer": {
+        "type": "exe",
+        "path": "packages/npp/npp-installer-x64.exe",
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000002",
+        "args": "/S"
+      },
+      "detection": {
+        "type": "registry",
+        "key": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Notepad++",
+        "valueName": "DisplayVersion"
+      }
+    },
+    {
+      "id": "acrobat-reader",
+      "name": "Adobe Acrobat Reader",
+      "version": "24.004",
+      "publisher": "Adobe",
+      "category": "Office",
+      "description": "PDF viewer. Mock: simulates a reboot-required exit (3010).",
+      "installer": {
+        "type": "exe",
+        "path": "packages/reader/AcroRdr-x64.exe",
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000003",
+        "args": "/sAll /rs /msi EULA_ACCEPT=YES"
+      },
+      "detection": { "type": "file", "path": "%ProgramFiles%\\Adobe\\Acrobat DC\\Acrobat\\Acrobat.exe" }
+    },
+    {
+      "id": "vlc",
+      "name": "VLC Media Player",
+      "version": "3.0.21",
+      "publisher": "VideoLAN",
+      "category": "Media",
+      "description": "Mock: simulates a hash mismatch so you can see the tamper guard.",
+      "installer": {
+        "type": "msi",
+        "path": "packages/vlc/vlc-x64.msi",
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000004",
+        "args": "/qn /norestart"
+      },
+      "detection": { "type": "msiProductCode", "productCode": "{00000000-0000-0000-0000-000000000004}" }
+    },
+    {
+      "id": "sire-filecenter",
+      "name": "SIRE FileCenter Client",
+      "version": "2.1",
+      "publisher": "SIRE",
+      "category": "Line of Business",
+      "description": "Mock: simulates MSI fatal error 1603.",
+      "installer": {
+        "type": "msi",
+        "path": "packages/sire/FileCenterClient.msi",
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000005",
+        "args": "/qn /norestart"
+      },
+      "detection": { "type": "msiProductCode", "productCode": "{00000000-0000-0000-0000-000000000005}" }
+    },
+    {
+      "id": "chrome-enterprise",
+      "name": "Google Chrome Enterprise",
+      "version": "130.0.6723.70",
+      "publisher": "Google",
+      "category": "Browsers",
+      "installer": {
+        "type": "msi",
+        "path": "packages/chrome/googlechromestandaloneenterprise64.msi",
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000006",
+        "args": "/qn /norestart"
+      },
+      "detection": {
+        "type": "registry",
+        "key": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Google Chrome",
+        "valueName": "DisplayVersion"
+      }
+    }
+  ]
+}

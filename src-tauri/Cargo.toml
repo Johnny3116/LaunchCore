@@ -1,0 +1,22 @@
+[package]
+name = "launchcore"
+version = "0.1.0"
+description = "Portable local software installer"
+authors = ["Johnathan Mitchell"]
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "=2.7.3", features = [] }
+
+[dependencies]
+tauri = { version = "=2.12.4", features = [] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+
+[profile.release]
+# Portable exe: favor size. Lives on flash drives and shares.
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true

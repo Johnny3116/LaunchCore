@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Minimal permissions for the main window. No shell, fs or http plugins — all privileged work goes through LaunchCore's own audited Rust commands.",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}
