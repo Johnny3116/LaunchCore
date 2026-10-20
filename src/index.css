@@ -2,8 +2,7 @@
 
 /*
  * Design tokens adopted from the "Deploy" design (Lovable export).
- * Values are oklch. Light by default; dark follows the OS setting
- * (the original used a .dark class nothing toggled).
+ * Values are oklch. Light theme only, white background.
  * Fonts are self-hosted via @fontsource (imported in main.tsx) so the app
  * works offline and under the Tauri CSP — no Google Fonts requests.
  */
@@ -38,8 +37,9 @@
 }
 
 :root {
+  color-scheme: light;
   --radius: 0.5rem;
-  --background: oklch(0.97 0.008 250);
+  --background: oklch(1 0 0); /* white app background */
   --foreground: oklch(0.23 0.02 255);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.23 0.02 255);
@@ -55,27 +55,6 @@
   --border: oklch(0.9 0.01 250);
   --input: oklch(0.9 0.01 250);
   --ring: oklch(0.58 0.16 150);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: oklch(0.129 0.042 264.695);
-    --foreground: oklch(0.984 0.003 247.858);
-    --card: oklch(0.208 0.042 265.755);
-    --card-foreground: oklch(0.984 0.003 247.858);
-    --primary: oklch(0.929 0.013 255.508);
-    --primary-foreground: oklch(0.208 0.042 265.755);
-    --secondary: oklch(0.279 0.041 260.031);
-    --secondary-foreground: oklch(0.984 0.003 247.858);
-    --muted: oklch(0.279 0.041 260.031);
-    --muted-foreground: oklch(0.704 0.04 256.788);
-    --destructive: oklch(0.704 0.191 22.216);
-    --warning: oklch(0.8 0.15 80);
-    --success: oklch(0.75 0.17 155);
-    --border: oklch(1 0 0 / 10%);
-    --input: oklch(1 0 0 / 15%);
-    --ring: oklch(0.551 0.027 264.364);
-  }
 }
 
 @layer base {

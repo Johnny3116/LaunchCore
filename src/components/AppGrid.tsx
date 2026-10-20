@@ -1,13 +1,11 @@
 import { useMemo, useState } from "react";
 import { RefreshCw } from "lucide-react";
-import { tileColor, type Catalog, type Package } from "../lib/catalog";
-import type { DetectionResult } from "../lib/service";
+import { tileColor, type Catalog } from "../lib/catalog";
 import { isActive, type QueueState } from "../lib/useLaunchCore";
 
 type Props = {
   catalog: Catalog;
-  detection: Record<string, DetectionResult | "pending">;
-  /** Latest queue state per package id (unfinished and finished). */
+  /** Latest queue state per package id — drives the spinner on running tiles. */
   queueState: Record<string, QueueState>;
   /** Package ids currently queued or running — not selectable. */
   locked: Set<string>;
@@ -16,32 +14,7 @@ type Props = {
   onRefresh: () => void;
 };
 
-const QUEUE_TEXT: Partial<Record<QueueState, string>> = {
-  queued: "queued",
-  verifying: "verifying…",
-  "waiting-elevation": "waiting for UAC…",
-  installing: "installing…",
-  failed: "failed",
-  blocked: "blocked — hash mismatch",
-  reboot: "installed · reboot needed",
-};
-
-function statusLine(det: DetectionResult | "pending" | undefined, q: QueueState | undefined, pkg: Package): string {
-  if (q && QUEUE_TEXT[q]) return QUEUE_TEXT[q]!;
-  if (!det || det === "pending") return "checking…";
-  switch (det.status) {
-    case "installed":
-      return `installed · ${det.installedVersion ?? pkg.version}`;
-    case "outdated":
-      return `update · ${det.installedVersion ?? "?"} → ${pkg.version}`;
-    case "not-installed":
-      return `v${pkg.version}`;
-    case "unknown":
-      return "status unknown";
-  }
-}
-
-export function AppGrid({ catalog, detection, queueState, locked, selected, onToggle, onRefresh }: Props) {
+export function AppGrid({ catalog, queueState, locked, selected, onToggle, onRefresh }: Props) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("All");
 
@@ -102,22 +75,19 @@ export function AppGrid({ catalog, detection, queueState, locked, selected, onTo
           const on = selected.has(p.id);
           const isLocked = locked.has(p.id);
           const q = queueState[p.id];
-          const det = detection[p.id];
-          const installed = det !== "pending" && det?.status === "installed" && !q;
           return (
             <button
               key={p.id}
               onClick={() => onToggle(p.id)}
               disabled={isLocked}
               aria-pressed={on}
-              title={[p.publisher, p.description].filter(Boolean).join(" — ") || undefined}
-              className="group relative flex min-h-[148px] flex-col rounded-2xl border px-6 pb-6 pt-5 text-left transition hover:-translate-y-0.5 hover:shadow-lg disabled:cursor-default disabled:hover:translate-y-0"
+              aria-label={`${p.name} ${p.version}`}
+              className="group relative flex h-[132px] flex-col justify-end overflow-hidden rounded-2xl border p-6 text-left transition hover:-translate-y-0.5 hover:shadow-lg disabled:cursor-default disabled:hover:translate-y-0"
               style={{
                 backgroundColor: color,
                 backgroundImage: "linear-gradient(180deg, rgba(255,255,255,0.18), rgba(255,255,255,0) 55%)",
                 borderColor: on ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.25)",
                 boxShadow: on ? `0 0 0 3px ${color}66, 0 10px 30px -10px ${color}` : undefined,
-                opacity: installed && !on ? 0.72 : 1,
               }}
             >
               <span
@@ -129,11 +99,11 @@ export function AppGrid({ catalog, detection, queueState, locked, selected, onTo
               >
                 {on ? "✓" : isLocked && q && isActive(q) ? <span className="spin block h-3 w-3 rounded-full border-2 border-white border-t-transparent" /> : ""}
               </span>
-              <span className="mb-auto pb-3 pr-8 text-[11px] font-semibold uppercase tracking-wider text-white/75">
-                {p.category}
-              </span>
-              <h3 className="pr-8 font-display text-2xl font-bold leading-tight text-white">{p.name}</h3>
-              <p className="mt-2 font-mono text-sm font-semibold text-white">{statusLine(det, q, p)}</p>
+              {/* Fixed tile height: names clamp to two lines so every tile is the same size. */}
+              <h3 className="line-clamp-2 pr-8 font-display text-2xl font-bold leading-tight text-white" title={p.name}>
+                {p.name}
+              </h3>
+              <p className="mt-1.5 font-mono text-sm font-semibold text-white/90">v{p.version}</p>
             </button>
           );
         })}

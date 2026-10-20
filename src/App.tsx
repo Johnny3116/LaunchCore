@@ -10,7 +10,7 @@ import { ConfirmDialog } from "./components/ConfirmDialog";
 type View = "apps" | "log";
 
 export default function App({ service, isMock = false }: { service: LaunchCoreService; isMock?: boolean }) {
-  const { env, load, detection, queue, log, rebootRequired, actions } = useLaunchCore(service);
+  const { env, load, queue, log, rebootRequired, actions } = useLaunchCore(service);
   const [view, setView] = useState<View>("apps");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirming, setConfirming] = useState<Package[] | null>(null);
@@ -91,7 +91,6 @@ export default function App({ service, isMock = false }: { service: LaunchCoreSe
           ) : (
             <AppGrid
               catalog={load.catalog}
-              detection={detection}
               queueState={queueState}
               locked={locked}
               selected={selected}
