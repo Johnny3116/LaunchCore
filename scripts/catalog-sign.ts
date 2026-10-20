@@ -1,32 +1,36 @@
 #!/usr/bin/env bun
 /**
- * LaunchCore catalog signing tool (Ed25519).
+ * LaunchCore catalog tool (Ed25519 signing + installer hashes).
  *
- *   bun scripts/catalog-sign.ts keygen --private <path-outside-repo>
- *       Creates a signing keypair. Private key (PKCS#8 PEM) goes to --private.
- *       Public key is appended to src-tauri/keys/catalog.pub and gets compiled into LaunchCore.exe.
+ *   keygen --private <path>          New signing keypair. Private key → <path> (must be outside the repo).
+ *                                    Public key appended to src-tauri/keys/catalog.pub (compiled into the exe).
+ *   trust  --private <path>          Add an EXISTING private key's public half to catalog.pub (e.g. new clone).
+ *   hash   <catalog.json> [--write]  Hash every MSI/EXE next to the catalog and compare.
+ *                                    --write fills in / fixes the sha256 fields (then re-sign).
+ *   sign   <catalog.json> --private <path> [--allow-missing]
+ *                                    Validate, check installer hashes, write <catalog.json>.sig.
+ *                                    Refuses on any hash mismatch; --allow-missing permits absent files only.
+ *   verify <catalog.json>            Signature + schema + installer hashes, exactly as the exe checks.
  *
- *   bun scripts/catalog-sign.ts sign <catalog.json> --private <path>
- *       Validates the catalog, then writes <catalog.json>.sig next to it.
- *
- *   bun scripts/catalog-sign.ts verify <catalog.json> [--pub <catalog.pub>]
- *       Checks <catalog.json>.sig against the public key(s).
- *
- * The signature covers the exact bytes of catalog.json. Any edit — even whitespace — needs a re-sign.
+ * The signature covers the exact bytes of catalog.json; any edit needs a re-sign.
  * Keep the private key off the share and out of git. Anyone holding it can authorize installs.
  */
-import { createPrivateKey, createPublicKey, generateKeyPairSync, sign, verify, type KeyObject } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync } from "node:fs";
-import { dirname, resolve, relative, isAbsolute } from "node:path";
-import { parseCatalog } from "../src/lib/catalog";
-
-const REPO_ROOT = resolve(import.meta.dir, "..");
-const DEFAULT_PUB = resolve(REPO_ROOT, "src-tauri/keys/catalog.pub");
-
-function fail(msg: string): never {
-  console.error(`error: ${msg}`);
-  process.exit(1);
-}
+import { createPrivateKey, createPublicKey, generateKeyPairSync, sign, type KeyObject } from "node:crypto";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import {
+  PUB_PATH,
+  REPO_ROOT,
+  checkInstallers,
+  fail,
+  isInside,
+  printHashReport,
+  rawPublicB64,
+  readCatalogFile,
+  readTrustedKeys,
+  signatureValid,
+  validated,
+} from "./lib/kit";
 
 function flag(args: string[], name: string): string | undefined {
   const i = args.indexOf(name);
@@ -36,30 +40,17 @@ function flag(args: string[], name: string): string | undefined {
   return v;
 }
 
-const isInside = (child: string, parent: string) => {
-  const rel = relative(parent, child);
-  return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
-};
-
-/** Raw 32-byte Ed25519 public key as standard base64 (the format LaunchCore compiles in). */
-function rawPublicB64(key: KeyObject): string {
-  const jwk = key.export({ format: "jwk" });
-  if (jwk.crv !== "Ed25519" || !jwk.x) fail("not an Ed25519 key");
-  return Buffer.from(jwk.x, "base64url").toString("base64");
-}
-
-function publicFromRawB64(b64: string): KeyObject {
-  const raw = Buffer.from(b64.trim(), "base64");
-  if (raw.length !== 32) fail(`public key must decode to 32 bytes, got ${raw.length}`);
-  return createPublicKey({ key: { kty: "OKP", crv: "Ed25519", x: raw.toString("base64url") }, format: "jwk" });
-}
-
-function readPublicKeys(path: string): string[] {
-  if (!existsSync(path)) fail(`no public key file at ${path} — run keygen first`);
-  return readFileSync(path, "utf8")
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter((l) => l && !l.startsWith("#"));
+/** First argument that isn't a flag or a flag's value. */
+function positional(args: string[], valueFlags: string[]): string | undefined {
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i]!;
+    if (valueFlags.includes(a)) {
+      i++;
+      continue;
+    }
+    if (!a.startsWith("--")) return a;
+  }
+  return undefined;
 }
 
 function loadPrivate(path: string): KeyObject {
@@ -69,84 +60,120 @@ function loadPrivate(path: string): KeyObject {
   return key;
 }
 
-function validateCatalogFile(path: string): Buffer {
-  if (!existsSync(path)) fail(`catalog not found: ${path}`);
-  const bytes = readFileSync(path);
-  let json: unknown;
-  try {
-    // Tolerate a UTF-8 BOM (PowerShell 5 `-Encoding UTF8`). The signature still covers the raw bytes.
-    json = JSON.parse(bytes.toString("utf8").replace(/^﻿/, ""));
-  } catch (e) {
-    fail(`catalog is not valid JSON: ${(e as Error).message}`);
-  }
-  const parsed = parseCatalog(json);
-  if (!parsed.ok) fail(`catalog failed validation:\n  ${parsed.errors.join("\n  ")}`);
-  return bytes;
+/** Append a public key to catalog.pub unless already trusted. Returns true if added. */
+export function trustPublicKey(pubB64: string): boolean {
+  if (readTrustedKeys().includes(pubB64)) return false;
+  mkdirSync(dirname(PUB_PATH), { recursive: true });
+  const header = existsSync(PUB_PATH) ? "" : "# LaunchCore trusted catalog signing keys (raw Ed25519, base64). One per line.\n";
+  appendFileSync(PUB_PATH, `${header}# added ${new Date().toISOString()}\n${pubB64}\n`);
+  return true;
 }
 
-function keygen(args: string[]) {
-  const priv = flag(args, "--private") ?? fail("keygen requires --private <path>");
-  const privPath = resolve(priv);
+export function keygen(privPathArg: string): void {
+  const privPath = resolve(privPathArg);
   if (isInside(privPath, REPO_ROOT)) fail("refusing to write the private key inside the repo — pick a path outside it");
-  if (existsSync(privPath)) fail(`${privPath} already exists — not overwriting a signing key`);
-
+  if (existsSync(privPath)) fail(`${privPath} already exists — not overwriting a signing key (use 'trust' to reuse it)`);
   const { publicKey, privateKey } = generateKeyPairSync("ed25519");
   mkdirSync(dirname(privPath), { recursive: true });
   writeFileSync(privPath, privateKey.export({ format: "pem", type: "pkcs8" }), { mode: 0o600 });
-
-  const pubB64 = rawPublicB64(publicKey);
-  mkdirSync(dirname(DEFAULT_PUB), { recursive: true });
-  const header = existsSync(DEFAULT_PUB) ? "" : "# LaunchCore trusted catalog signing keys (raw Ed25519, base64). One per line.\n";
-  appendFileSync(DEFAULT_PUB, `${header}# added ${new Date().toISOString()}\n${pubB64}\n`);
-
+  trustPublicKey(rawPublicB64(publicKey));
   console.log(`private key: ${privPath}   (keep offline; back it up; never commit)`);
-  console.log(`public key appended to: ${DEFAULT_PUB}`);
-  console.log("rebuild LaunchCore so the new key is compiled in.");
+  console.log(`public key added to: ${PUB_PATH}  — commit this file, then rebuild.`);
 }
 
-function signCmd(args: string[]) {
-  const catalog = args.find((a) => !a.startsWith("--") && a !== flag(args, "--private")) ?? fail("sign needs <catalog.json>");
-  const priv = flag(args, "--private") ?? fail("sign requires --private <path>");
-  const bytes = validateCatalogFile(resolve(catalog));
-  const key = loadPrivate(resolve(priv));
-  const sig = sign(null, bytes, key).toString("base64");
+async function hashCmd(args: string[]) {
+  const catalog = resolve(positional(args, []) ?? fail("hash needs <catalog.json>"));
+  const { json } = readCatalogFile(catalog);
+  const rows = await checkInstallers(catalog, json);
+  if (rows.length === 0) return console.log("no MSI/EXE installers in this catalog (winget-only).");
+  printHashReport(rows);
 
-  // Self-check against the compiled-in key list so a wrong key is caught before deployment.
-  const pubs = existsSync(DEFAULT_PUB) ? readPublicKeys(DEFAULT_PUB) : [];
-  const mine = rawPublicB64(createPublicKey(key));
-  if (pubs.length && !pubs.includes(mine)) {
-    console.warn("warning: this private key's public half is NOT in src-tauri/keys/catalog.pub — LaunchCore will reject this signature.");
+  if (!args.includes("--write")) {
+    if (rows.some((r) => r.status !== "ok")) {
+      console.log("\nrun again with --write to update sha256 values from the files on disk.");
+      process.exit(1);
+    }
+    return;
+  }
+  const blockers = rows.filter((r) => r.status === "missing" || r.status === "invalid");
+  if (blockers.length) fail("fix missing/invalid installer paths before --write");
+  let changed = 0;
+  for (const p of (json as { packages: { id: string; installer: { type: string; sha256?: string } }[] }).packages) {
+    const row = rows.find((r) => r.ref.id === p.id);
+    if (row && row.status === "mismatch") {
+      p.installer.sha256 = row.actual;
+      changed++;
+    }
+  }
+  if (changed === 0) return console.log("\nall hashes already correct.");
+  writeFileSync(catalog, `${JSON.stringify(json, null, 2)}\n`); // LF, no BOM
+  console.log(`\nupdated ${changed} hash(es) in ${catalog}. Re-sign it now.`);
+}
+
+export async function signCatalog(catalogArg: string, privArg: string, allowMissing = false): Promise<void> {
+  const catalog = resolve(catalogArg);
+  const { bytes, json } = readCatalogFile(catalog);
+  validated(json, "catalog");
+
+  const rows = await checkInstallers(catalog, json);
+  const bad = rows.filter((r) => r.status === "mismatch" || r.status === "invalid" || (r.status === "missing" && !allowMissing));
+  if (bad.length) {
+    printHashReport(rows);
+    fail(
+      "installer files don't match the catalog — not signing.\n" +
+        "  Fix with: bun run catalog hash <catalog.json> --write   (or --allow-missing if files aren't copied yet)",
+    );
   }
 
-  const out = `${resolve(catalog)}.sig`;
-  writeFileSync(out, `${sig}\n`);
-  console.log(`signed: ${out}`);
+  const key = loadPrivate(resolve(privArg));
+  const mine = rawPublicB64(createPublicKey(key));
+  if (!readTrustedKeys().includes(mine)) {
+    console.warn("warning: this key is NOT in src-tauri/keys/catalog.pub — LaunchCore will reject the signature.");
+    console.warn("         run: bun run catalog trust --private <path>   then rebuild.");
+  }
+  writeFileSync(`${catalog}.sig`, `${sign(null, bytes, key).toString("base64")}\n`);
+  console.log(`signed: ${catalog}.sig${rows.length ? `  (${rows.filter((r) => r.status === "ok").length}/${rows.length} installers hash-verified)` : ""}`);
 }
 
-function verifyCmd(args: string[]) {
-  const catalog = args.find((a) => !a.startsWith("--") && a !== flag(args, "--pub")) ?? fail("verify needs <catalog.json>");
-  const pubPath = resolve(flag(args, "--pub") ?? DEFAULT_PUB);
-  const bytes = readFileSync(resolve(catalog));
-  const sigPath = `${resolve(catalog)}.sig`;
-  if (!existsSync(sigPath)) fail(`no signature file: ${sigPath}`);
-  const sig = Buffer.from(readFileSync(sigPath, "utf8").trim(), "base64");
-  const ok = readPublicKeys(pubPath).some((k) => verify(null, bytes, publicFromRawB64(k), sig));
-  if (!ok) fail("signature INVALID for every trusted key");
-  console.log("signature OK");
+async function verifyCmd(args: string[]) {
+  const catalog = resolve(positional(args, []) ?? fail("verify needs <catalog.json>"));
+  const keys = readTrustedKeys();
+  if (keys.length === 0) fail(`no trusted keys in ${PUB_PATH}`);
+  if (!signatureValid(catalog, keys)) fail("signature missing or INVALID for every trusted key");
+  const { json } = readCatalogFile(catalog);
+  const cat = validated(json, "catalog");
+  const rows = await checkInstallers(catalog, json);
+  if (rows.length) printHashReport(rows);
+  if (rows.some((r) => r.status !== "ok")) fail("signature OK, but installer files don't match — this kit will block those installs");
+  console.log(`OK — signature valid, ${cat.packages.length} packages, ${rows.length} installer(s) verified`);
 }
 
-const [cmd, ...rest] = process.argv.slice(2);
-switch (cmd) {
-  case "keygen":
-    keygen(rest);
-    break;
-  case "sign":
-    signCmd(rest);
-    break;
-  case "verify":
-    verifyCmd(rest);
-    break;
-  default:
-    console.log("usage: bun scripts/catalog-sign.ts <keygen|sign|verify> ...  (see header of this file)");
-    process.exit(cmd ? 1 : 0);
+if (import.meta.main) {
+  const [cmd, ...rest] = process.argv.slice(2);
+  switch (cmd) {
+    case "keygen":
+      keygen(flag(rest, "--private") ?? fail("keygen requires --private <path>"));
+      break;
+    case "trust": {
+      const key = loadPrivate(resolve(flag(rest, "--private") ?? fail("trust requires --private <path>")));
+      console.log(trustPublicKey(rawPublicB64(createPublicKey(key))) ? `added to ${PUB_PATH} — commit it, then rebuild.` : "already trusted.");
+      break;
+    }
+    case "hash":
+      await hashCmd(rest);
+      break;
+    case "sign":
+      await signCatalog(
+        positional(rest, ["--private"]) ?? fail("sign needs <catalog.json>"),
+        flag(rest, "--private") ?? fail("sign requires --private <path>"),
+        rest.includes("--allow-missing"),
+      );
+      break;
+    case "verify":
+      await verifyCmd(rest);
+      break;
+    default:
+      console.log("usage: bun run catalog <keygen|trust|hash|sign|verify> ...  (see the header of scripts/catalog-sign.ts)");
+      process.exit(cmd ? 1 : 0);
+  }
 }

@@ -6,6 +6,23 @@ Portable software installer for Windows. LaunchCore runs from a flash drive or a
 
 - **Front end:** done. In a plain browser it runs on mock data, labeled "mock mode".
 - **Backend:** catalog signing, detection, install, and logging are implemented. It compile-checks for Windows; next step is real-machine testing.
+- **Tooling:** `bun run setup` handles first-time setup, and `bun run kit` builds a deployable folder.
+
+## Quick start (Windows)
+
+You need [Bun](https://bun.sh), [Rust](https://rustup.rs) with the MSVC toolchain (Visual Studio C++ Build Tools), and the WebView2 runtime, which ships with Windows 11.
+
+```powershell
+git clone https://github.com/Johnny3116/LaunchCore.git; cd LaunchCore
+bun install
+bun run setup                                   # checks tools, creates your signing key, signs the test kit
+git add src-tauri/keys/catalog.pub; git commit -m "Add catalog signing key"
+
+$env:LAUNCHCORE_KIT_DIR = "$PWD\examples\test-kit"
+bun run tauri dev                               # real app against the test kit (7-Zip via winget)
+```
+
+`setup` is safe to re-run. It never overwrites a key. Your private key lives at `%USERPROFILE%\.launchcore\catalog-signing.key`. Back it up, and never commit it or put it on the share.
 
 ## Kit layout
 
@@ -35,28 +52,29 @@ Elevation is requested per install through UAC. The app itself runs un-elevated.
 
 **Still recommended:** make the share read-only for everyone except whoever maintains the kit.
 
-## Catalog signing
+## Making a kit
 
-One-time setup. The private key must live **outside** the repo; the tool refuses otherwise.
-
-```powershell
-bun scripts/catalog-sign.ts keygen --private $env:USERPROFILE\.launchcore\catalog-signing.key
-```
-
-This writes the public key to `src-tauri/keys/catalog.pub`. Commit that file and rebuild. Keep the private key offline and backed up. Anyone holding it can authorize installs.
-
-Every time the catalog changes:
+Keep a **source** folder with your real `catalog.json` and the installers under `packages\`. Then:
 
 ```powershell
-bun scripts/catalog-sign.ts sign \\server\share\LaunchCore\catalog.json --private $env:USERPROFILE\.launchcore\catalog-signing.key
-bun scripts/catalog-sign.ts verify \\server\share\LaunchCore\catalog.json
+bun run catalog hash  D:\KitSource\catalog.json --write     # fill in / fix every installer's SHA-256
+bun run catalog sign  D:\KitSource\catalog.json --private $env:USERPROFILE\.launchcore\catalog-signing.key
+bun run kit --catalog D:\KitSource\catalog.json --out D:\LaunchCoreKit
 ```
 
-`sign` validates the catalog first and refuses to sign a broken one. To check a kit exactly as the exe will:
+- `sign` validates the catalog and hashes every installer first, and refuses to sign if anything doesn't match. Use `--allow-missing` if the files aren't copied in yet.
+- `kit` builds `LaunchCore.exe`, copies **only** the installers the catalog uses, then re-verifies the copied folder exactly as the exe will. It never overwrites an existing folder.
+- Copy the `--out` folder to the flash drive or share as-is.
 
-```powershell
-cargo run -p launchcore-core --example verify -- path\to\catalog.json src-tauri\keys\catalog.pub
-```
+Other catalog commands:
+
+| Command | What it does |
+|---|---|
+| `bun run catalog verify <catalog.json>` | Checks the signature, schema, and installer hashes, the same way the exe does |
+| `bun run catalog trust --private <key>` | Trusts an existing key (e.g. on a new clone) |
+| `bun run catalog keygen --private <path>` | Makes an additional key (key rotation). See `src-tauri/keys/README.md` |
+
+Any edit to `catalog.json`, even whitespace, needs a re-sign. A BOM from PowerShell 5 is fine. `.gitattributes` keeps Git from changing line endings on signed files.
 
 ## catalog.json
 
@@ -111,26 +129,19 @@ Caveats:
 
 ## Logs
 
-The session log is written to `%ProgramData%\LaunchCore\logs\launchcore-YYYY-MM-DD.log` on the target machine, falling back to `%LOCALAPPDATA%`. Each MSI also writes a verbose log next to it (`msi-<id>-<time>.log`). Nothing is written to the kit.
+The session log is written to `%ProgramData%\LaunchCore\logs\launchcore-YYYY-MM-DD-<user>.log` (one file per user, so shared PCs work) on the target machine, falling back to `%LOCALAPPDATA%`. Each MSI also writes a verbose log next to it (`msi-<id>-<time>.log`). Nothing is written to the kit.
 
 ## Development
 
-Requires [Bun](https://bun.sh), Rust (MSVC toolchain), and the WebView2 runtime. WebView2 ships with Windows 11.
-
 ```powershell
-bun install
-bun run dev                                   # UI only, in a browser, mock data
-
-# Real backend against the test kit (debug builds only honor LAUNCHCORE_KIT_DIR):
-bun scripts/catalog-sign.ts sign examples\test-kit\catalog.json --private $env:USERPROFILE\.launchcore\catalog-signing.key
-$env:LAUNCHCORE_KIT_DIR = "$PWD\examples\test-kit"
-bun run tauri dev
-
-cargo test -p launchcore-core                 # core logic tests (any OS)
-bun run tauri build                           # release exe: target\release\LaunchCore.exe
+bun run dev            # UI only, in a browser, on mock data
+bun run tauri dev      # desktop app (debug builds honor LAUNCHCORE_KIT_DIR)
+bun run typecheck      # UI + scripts
+bun run test           # Rust core tests (any OS)
+bun run tauri build    # release exe: target\release\LaunchCore.exe
 ```
 
-To deploy a kit, copy `LaunchCore.exe`, `catalog.json`, `catalog.json.sig` and `packages\` into one folder. Release builds always read the catalog from the exe's own folder.
+If WebView2 is missing, LaunchCore shows a message box rather than silently exiting. Any startup failure is also written to the log.
 
 Icons were generated from `app-icon.png` with `bun run tauri icon app-icon.png`.
 
@@ -143,7 +154,7 @@ src/                       React UI (Deploy design)
 src-tauri/                 Tauri app: commands, Win32 detection/install, logging
   keys/catalog.pub         trusted public keys (compiled in)
 crates/launchcore-core/    pure logic: schema, signatures, hashing, paths, versions (+ tests)
-scripts/catalog-sign.ts    keygen / sign / verify
+scripts/                   setup, catalog (keygen/trust/hash/sign/verify), kit builder
 examples/test-kit/         one winget package for end-to-end testing
 ```
 
