@@ -1,0 +1,12 @@
+# Default: normalize text to LF in the repo. (Later lines override earlier ones.)
+* text=auto
+*.png binary
+*.ico binary
+*.icns binary
+*.woff2 binary
+
+# Signed files must keep their exact bytes. Without this, Git on Windows (autocrlf)
+# rewrites LF -> CRLF on checkout and every catalog signature breaks.
+catalog.json -text
+*.sig -text
+src-tauri/keys/catalog.pub -text

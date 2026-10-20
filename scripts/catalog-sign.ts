@@ -74,7 +74,8 @@ function validateCatalogFile(path: string): Buffer {
   const bytes = readFileSync(path);
   let json: unknown;
   try {
-    json = JSON.parse(bytes.toString("utf8"));
+    // Tolerate a UTF-8 BOM (PowerShell 5 `-Encoding UTF8`). The signature still covers the raw bytes.
+    json = JSON.parse(bytes.toString("utf8").replace(/^﻿/, ""));
   } catch (e) {
     fail(`catalog is not valid JSON: ${(e as Error).message}`);
   }
