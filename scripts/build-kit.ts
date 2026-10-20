@@ -101,7 +101,7 @@ let bytes = statSync(exe).size;
 const srcKit = dirname(source);
 const copied = new Set<string>();
 for (const p of (json as { packages: { installer: { type: string; path?: string } }[] }).packages) {
-  if (p.installer.type !== "msi" && p.installer.type !== "exe") continue;
+  if (p.installer.type === "winget") continue;
   const rel = toNative(p.installer.path!);
   const key = rel.toLowerCase();
   if (RESERVED.has(key)) fail(`installer path '${p.installer.path}' collides with a kit file — move it under packages\\`);

@@ -59,7 +59,7 @@ pub fn install(pkg: &Package, ctx: &Ctx) -> InstallOutcome {
                 o
             }
         },
-        Installer::Msi(l) | Installer::Exe(l) => {
+        Installer::Msi(l) | Installer::Exe(l) | Installer::Ps1(l) => {
             let is_msi = matches!(pkg.installer, Installer::Msi(_));
             ctx.phase(InstallPhase::Verifying);
             let staged = match stage_and_verify(pkg, l, ctx) {
@@ -77,6 +77,16 @@ pub fn install(pkg: &Package, ctx: &Ctx) -> InstallOutcome {
                 (
                     system_dir().join("msiexec.exe"),
                     format!("/i \"{}\" {} /l*v \"{}\"", staged.path.display(), l.args, msi_log.display()),
+                )
+            } else if matches!(pkg.installer, Installer::Ps1(_)) {
+                // Bypass applies to this one process only; the machine's execution policy is not changed.
+                (
+                    system_dir().join(r"WindowsPowerShell\v1.0\powershell.exe"),
+                    format!(
+                        "-NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -File \"{}\" {}",
+                        staged.path.display(),
+                        l.args
+                    ),
                 )
             } else {
                 (staged.path.clone(), l.args.clone())

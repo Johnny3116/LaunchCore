@@ -50,6 +50,12 @@ export const WINGET_ID = /^[A-Za-z0-9][A-Za-z0-9.+_-]{1,99}$/;
 export const InstallerSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("msi"), ...localInstaller }),
   z.object({ type: z.literal("exe"), ...localInstaller }),
+  /** PowerShell script. Runs elevated via powershell.exe -ExecutionPolicy Bypass -File; the machine policy is untouched. */
+  z.object({
+    type: z.literal("ps1"),
+    ...localInstaller,
+    path: relativePath.refine((p) => p.toLowerCase().endsWith(".ps1"), { message: "ps1 installers must point at a .ps1 file" }),
+  }),
   z.object({
     /** Downloads from the internet via winget at install time. Needs winget + network on the target. */
     type: z.literal("winget"),

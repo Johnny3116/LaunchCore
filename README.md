@@ -92,7 +92,7 @@ The schema lives in `src/lib/catalog.ts` (zod) and is mirrored in `crates/launch
       "category": "Utilities",
       "color": "#A2845E",                 // optional tile color
       "installer": {
-        "type": "msi",                    // "msi" | "exe" | "winget"
+        "type": "msi",                    // "msi" | "exe" | "ps1" | "winget"
         "path": "packages/7zip/7z-x64.msi",
         "sha256": "<64 hex chars>",
         "args": "/qn /norestart",         // MSI: LaunchCore adds /i <staged path> and /l*v <log>
