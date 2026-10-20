@@ -26,7 +26,7 @@ export function readCatalogFile(path: string): { bytes: Buffer; json: unknown } 
   if (!existsSync(path)) fail(`catalog not found: ${path}`);
   const bytes = readFileSync(path);
   try {
-    return { bytes, json: JSON.parse(bytes.toString("utf8").replace(/^﻿/, "")) };
+    return { bytes, json: JSON.parse(bytes.toString("utf8").replace(/^\uFEFF/, "")) };
   } catch (e) {
     fail(`${path} is not valid JSON: ${(e as Error).message}`);
   }
