@@ -154,6 +154,8 @@ impl CatalogError {
 
 /// Parse and fully validate catalog bytes. Signature checking happens before this, on the raw bytes.
 pub fn parse_catalog(bytes: &[u8]) -> Result<Catalog, CatalogError> {
+    // PowerShell 5's `-Encoding UTF8` and some editors prepend a UTF-8 BOM; JSON parsers reject it.
+    let bytes = bytes.strip_prefix(b"\xEF\xBB\xBF").unwrap_or(bytes);
     let catalog: Catalog = serde_json::from_slice(bytes)?;
     let errors = validate(&catalog);
     if errors.is_empty() {
@@ -367,6 +369,13 @@ mod tests {
         assert!(err.iter().any(|m| m.contains("duplicate id")), "{err:?}");
         assert!(err.iter().any(|m| m.contains("productCode")), "{err:?}");
         assert!(err.iter().any(|m| m.contains("HKLM")), "{err:?}");
+    }
+
+    #[test]
+    fn accepts_utf8_bom() {
+        let mut with_bom = b"\xEF\xBB\xBF".to_vec();
+        with_bom.extend_from_slice(GOOD.as_bytes());
+        assert!(parse_catalog(&with_bom).is_ok());
     }
 
     #[test]
