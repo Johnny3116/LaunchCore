@@ -11,9 +11,9 @@ fn main() {
     if !usable {
         panic!(
             "\n\nsrc-tauri/keys/catalog.pub is missing or has no keys.\n\
-             Generate your catalog signing key once:\n\
-             \n    bun scripts/catalog-sign.ts keygen --private <path OUTSIDE the repo>\n\n\
-             then rebuild. See README > Catalog signing.\n\n"
+             Run first-time setup (creates your signing key, never overwrites one):\n\
+             \n    bun run setup\n\n\
+             then rebuild. See README > Quick start.\n\n"
         );
     }
     tauri_build::build()
