@@ -1,4 +1,5 @@
 use super::{hklm_string, winget_path};
+use super::startup::webview2_version;
 use crate::types::Environment;
 use std::path::Path;
 
@@ -34,10 +35,4 @@ fn os_version() -> String {
         .filter(|s| !s.is_empty())
         .collect::<Vec<_>>()
         .join(" ")
-}
-
-/// Machine-wide Evergreen WebView2 runtime version ("pv" under its EdgeUpdate client key).
-fn webview2_version() -> Option<String> {
-    const CLIENT: &str = r"SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}";
-    hklm_string(CLIENT, "pv").ok().flatten().filter(|v| !v.is_empty() && v != "0.0.0.0")
 }

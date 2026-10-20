@@ -3,6 +3,7 @@
 pub mod detect;
 pub mod env;
 pub mod install;
+pub mod startup;
 
 use std::ffi::OsStr;
 use std::os::windows::ffi::OsStrExt;
