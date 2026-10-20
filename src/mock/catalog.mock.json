@@ -9,13 +9,17 @@
       "publisher": "Igor Pavlov",
       "category": "Utilities",
       "description": "File archiver.",
+      "color": "#A2845E",
       "installer": {
         "type": "msi",
         "path": "packages/7zip/7z-x64.msi",
         "sha256": "0000000000000000000000000000000000000000000000000000000000000001",
         "args": "/qn /norestart"
       },
-      "detection": { "type": "msiProductCode", "productCode": "{00000000-0000-0000-0000-000000000001}" }
+      "detection": {
+        "type": "msiProductCode",
+        "productCode": "{00000000-0000-0000-0000-000000000001}"
+      }
     },
     {
       "id": "notepad-plus-plus",
@@ -23,6 +27,7 @@
       "version": "8.7.1",
       "publisher": "Notepad++ Team",
       "category": "Utilities",
+      "color": "#34C759",
       "installer": {
         "type": "exe",
         "path": "packages/npp/npp-installer-x64.exe",
@@ -42,13 +47,17 @@
       "publisher": "Adobe",
       "category": "Office",
       "description": "PDF viewer. Mock: simulates a reboot-required exit (3010).",
+      "color": "#FF453A",
       "installer": {
         "type": "exe",
         "path": "packages/reader/AcroRdr-x64.exe",
         "sha256": "0000000000000000000000000000000000000000000000000000000000000003",
         "args": "/sAll /rs /msi EULA_ACCEPT=YES"
       },
-      "detection": { "type": "file", "path": "%ProgramFiles%\\Adobe\\Acrobat DC\\Acrobat\\Acrobat.exe" }
+      "detection": {
+        "type": "file",
+        "path": "%ProgramFiles%\\Adobe\\Acrobat DC\\Acrobat\\Acrobat.exe"
+      }
     },
     {
       "id": "vlc",
@@ -57,13 +66,17 @@
       "publisher": "VideoLAN",
       "category": "Media",
       "description": "Mock: simulates a hash mismatch so you can see the tamper guard.",
+      "color": "#FF9500",
       "installer": {
         "type": "msi",
         "path": "packages/vlc/vlc-x64.msi",
         "sha256": "0000000000000000000000000000000000000000000000000000000000000004",
         "args": "/qn /norestart"
       },
-      "detection": { "type": "msiProductCode", "productCode": "{00000000-0000-0000-0000-000000000004}" }
+      "detection": {
+        "type": "msiProductCode",
+        "productCode": "{00000000-0000-0000-0000-000000000004}"
+      }
     },
     {
       "id": "sire-filecenter",
@@ -72,13 +85,17 @@
       "publisher": "SIRE",
       "category": "Line of Business",
       "description": "Mock: simulates MSI fatal error 1603.",
+      "color": "#5E5CE6",
       "installer": {
         "type": "msi",
         "path": "packages/sire/FileCenterClient.msi",
         "sha256": "0000000000000000000000000000000000000000000000000000000000000005",
         "args": "/qn /norestart"
       },
-      "detection": { "type": "msiProductCode", "productCode": "{00000000-0000-0000-0000-000000000005}" }
+      "detection": {
+        "type": "msiProductCode",
+        "productCode": "{00000000-0000-0000-0000-000000000005}"
+      }
     },
     {
       "id": "chrome-enterprise",
@@ -86,6 +103,7 @@
       "version": "130.0.6723.70",
       "publisher": "Google",
       "category": "Browsers",
+      "color": "#0A84FF",
       "installer": {
         "type": "msi",
         "path": "packages/chrome/googlechromestandaloneenterprise64.msi",

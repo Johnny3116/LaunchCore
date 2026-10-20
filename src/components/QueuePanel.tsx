@@ -1,41 +1,44 @@
 import { useEffect, useState } from "react";
-import { AlertTriangle, Ban, CheckCircle2, Clock, Loader2, RotateCcw, ShieldAlert, XCircle } from "lucide-react";
+import type { Package } from "../lib/catalog";
 import { describeExitCode } from "../lib/exitCodes";
 import { isActive, isFinished, type QueueItem, type QueueState } from "../lib/useLaunchCore";
 
-type Props = { queue: QueueItem[]; onSkipPending: () => void; onClearFinished: () => void };
-
-const LABEL: Record<QueueState, string> = {
-  queued: "Queued",
-  verifying: "Verifying hash…",
-  "waiting-elevation": "Waiting for UAC…",
-  installing: "Installing…",
-  success: "Installed",
-  reboot: "Installed — reboot required",
-  failed: "Failed",
-  blocked: "Blocked — hash mismatch",
-  skipped: "Skipped",
+type Props = {
+  selected: Package[];
+  queue: QueueItem[];
+  busy: boolean;
+  rebootRequired: boolean;
+  onInstall: () => void;
+  onClearSelection: () => void;
+  onSkipPending: () => void;
+  onClearFinished: () => void;
 };
 
-function Icon({ state }: { state: QueueState }) {
-  if (isActive(state)) return <Loader2 size={16} className="spin text-info" />;
-  switch (state) {
-    case "queued":
-      return <Clock size={16} className="text-muted" />;
-    case "success":
-      return <CheckCircle2 size={16} className="text-ok" />;
-    case "reboot":
-      return <RotateCcw size={16} className="text-warn" />;
-    case "failed":
-      return <XCircle size={16} className="text-bad" />;
-    case "blocked":
-      return <ShieldAlert size={16} className="text-bad" />;
-    default:
-      return <Ban size={16} className="text-muted" />;
-  }
-}
+const LABEL: Record<QueueState, string> = {
+  queued: "queued",
+  verifying: "verifying",
+  "waiting-elevation": "uac",
+  installing: "installing",
+  success: "done",
+  reboot: "reboot",
+  failed: "failed",
+  blocked: "blocked",
+  skipped: "skipped",
+};
 
-/** Live elapsed timer. Installers don't report real progress, so we don't fake a percentage. */
+const TONE: Record<QueueState, string> = {
+  queued: "text-muted-foreground",
+  verifying: "text-primary",
+  "waiting-elevation": "text-primary",
+  installing: "text-primary",
+  success: "text-success",
+  reboot: "text-warning",
+  failed: "text-destructive",
+  blocked: "text-destructive",
+  skipped: "text-muted-foreground",
+};
+
+/** Installers don't report real progress, so show elapsed time instead of a fake bar. */
 function Elapsed({ since }: { since: number }) {
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
@@ -43,7 +46,7 @@ function Elapsed({ since }: { since: number }) {
     return () => clearInterval(t);
   }, []);
   const s = Math.max(0, Math.floor((now - since) / 1000));
-  return <span className="font-mono">{`${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`}</span>;
+  return <>{`${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`}</>;
 }
 
 function detail(item: QueueItem): string | undefined {
@@ -51,74 +54,104 @@ function detail(item: QueueItem): string | undefined {
   if (!o) return undefined;
   switch (o.kind) {
     case "success":
-      return `Exit ${o.exitCode} · ${(o.durationMs / 1000).toFixed(1)}s`;
+      return `exit ${o.exitCode} · ${(o.durationMs / 1000).toFixed(1)}s`;
     case "failed":
-      return o.exitCode !== undefined ? `Exit ${o.exitCode} — ${describeExitCode(o.exitCode)}` : o.reason;
+      return o.exitCode !== undefined ? `exit ${o.exitCode} — ${describeExitCode(o.exitCode)}` : o.reason;
     case "hash-mismatch":
-      return "Installer file differs from catalog. It was not run.";
+      return "file differs from catalog — not run";
   }
 }
 
-export function QueuePanel({ queue, onSkipPending, onClearFinished }: Props) {
+export function QueuePanel(props: Props) {
+  const { selected, queue, busy, rebootRequired } = props;
   const pending = queue.filter((q) => q.state === "queued").length;
   const finished = queue.filter((q) => isFinished(q.state)).length;
 
   return (
-    <aside className="flex h-full min-h-0 w-80 shrink-0 flex-col border-l border-border bg-surface">
-      <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-muted">Install queue</h2>
-        <div className="flex gap-1">
-          <button
-            onClick={onSkipPending}
-            disabled={pending === 0}
-            className="rounded px-2 py-1 text-xs hover:bg-surface-2 disabled:opacity-40"
-            title="Skip items that haven't started. A running install is never killed."
-          >
-            Skip pending
-          </button>
-          <button
-            onClick={onClearFinished}
-            disabled={finished === 0}
-            className="rounded px-2 py-1 text-xs hover:bg-surface-2 disabled:opacity-40"
-          >
-            Clear done
-          </button>
-        </div>
-      </div>
+    <aside className="h-fit rounded-lg border border-border bg-card p-5 lg:sticky lg:top-8">
+      <h2 className="font-display text-lg font-semibold">Install queue</h2>
+      <p className="text-xs text-muted-foreground">{selected.length} selected</p>
 
-      <ol className="min-h-0 flex-1 overflow-auto">
-        {queue.length === 0 && (
-          <li className="px-4 py-10 text-center text-muted">
-            Nothing queued.
-            <br />
-            Pick packages and hit Install.
-          </li>
+      <ul className="mt-4 space-y-2">
+        {selected.length === 0 && queue.length === 0 && (
+          <li className="text-sm text-muted-foreground">Click apps to add them.</li>
         )}
-        {queue.map((item) => (
-          <li key={item.key} className="flex gap-3 border-b border-border px-4 py-3">
-            <div className="pt-0.5">
-              <Icon state={item.state} />
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-baseline justify-between gap-2">
-                <span className="truncate font-semibold">{item.pkg.name}</span>
-                <span className="shrink-0 font-mono text-xs text-muted">{item.pkg.version}</span>
-              </div>
-              <div className="flex items-center justify-between text-xs text-muted">
-                <span>{LABEL[item.state]}</span>
-                {isActive(item.state) && item.startedAt && <Elapsed since={item.startedAt} />}
-              </div>
-              {detail(item) && <div className="selectable mt-1 text-xs text-muted">{detail(item)}</div>}
-            </div>
+        {selected.map((p) => (
+          <li key={p.id} className="flex justify-between gap-2 font-mono text-xs">
+            <span className="truncate">{p.id}</span>
+            <span className="text-primary">ready</span>
           </li>
         ))}
-      </ol>
+      </ul>
 
-      {queue.some((q) => q.state === "blocked") && (
-        <div className="flex gap-2 border-t border-border bg-surface-2 px-4 py-3 text-xs">
-          <AlertTriangle size={14} className="mt-0.5 shrink-0 text-bad" />
-          <span>A blocked installer may have been modified. Don't run it manually — report it and replace it from a trusted source.</span>
+      <button
+        disabled={selected.length === 0}
+        onClick={props.onInstall}
+        className="mt-5 w-full rounded-md bg-primary py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-40"
+      >
+        {busy && selected.length === 0 ? "Installing…" : `Install ${selected.length || ""} app${selected.length === 1 ? "" : "s"}`}
+      </button>
+      {selected.length > 0 && (
+        <button
+          onClick={props.onClearSelection}
+          className="mt-2 w-full py-1 text-xs text-muted-foreground hover:text-foreground"
+        >
+          Clear
+        </button>
+      )}
+
+      {queue.length > 0 && (
+        <div className="mt-5 border-t border-border pt-4">
+          <div className="mb-2 flex items-center justify-between">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">This session</h3>
+            <div className="flex gap-3 text-xs text-muted-foreground">
+              {pending > 0 && (
+                <button
+                  onClick={props.onSkipPending}
+                  className="hover:text-foreground"
+                  title="Skip items that haven't started. A running install is never killed."
+                >
+                  Skip pending
+                </button>
+              )}
+              {finished > 0 && (
+                <button onClick={props.onClearFinished} className="hover:text-foreground">
+                  Clear done
+                </button>
+              )}
+            </div>
+          </div>
+          <ul className="space-y-2">
+            {queue.map((item) => (
+              <li key={item.key} className="font-mono text-xs">
+                <div className="flex justify-between gap-2">
+                  <span className="truncate">{item.pkg.id}</span>
+                  <span className={TONE[item.state]}>
+                    {LABEL[item.state]}
+                    {isActive(item.state) && item.startedAt && (
+                      <>
+                        {" "}
+                        <Elapsed since={item.startedAt} />
+                      </>
+                    )}
+                  </span>
+                </div>
+                {detail(item) && <div className="selectable text-[10px] text-muted-foreground">{detail(item)}</div>}
+              </li>
+            ))}
+          </ul>
         </div>
+      )}
+
+      {rebootRequired && (
+        <p className="mt-4 rounded bg-secondary p-3 text-xs text-warning">
+          A reboot is needed to finish installing. Restart once the queue is done.
+        </p>
+      )}
+      {queue.some((q) => q.state === "blocked") && (
+        <p className="mt-3 rounded bg-secondary p-3 text-xs text-destructive">
+          A blocked installer may have been modified. Don't run it manually — report it and replace it from a trusted source.
+        </p>
       )}
     </aside>
   );

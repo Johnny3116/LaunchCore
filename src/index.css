@@ -1,56 +1,100 @@
 @import "tailwindcss";
 
-/* Design tokens. Light by default, dark via system preference.
-   Utilitarian console look: dense, high-contrast status colors, monospace for paths and codes. */
-@theme {
-  --font-sans: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
-  --font-mono: "Cascadia Mono", "Cascadia Code", Consolas, ui-monospace, monospace;
+/*
+ * Design tokens adopted from the "Deploy" design (Lovable export).
+ * Values are oklch. Light by default; dark follows the OS setting
+ * (the original used a .dark class nothing toggled).
+ * Fonts are self-hosted via @fontsource (imported in main.tsx) so the app
+ * works offline and under the Tauri CSP — no Google Fonts requests.
+ */
 
-  --color-bg: #f4f5f7;
-  --color-surface: #ffffff;
-  --color-surface-2: #eef0f3;
-  --color-border: #d9dde3;
-  --color-text: #15181d;
-  --color-muted: #5d6673;
-  --color-accent: #1f5fd1;
-  --color-accent-fg: #ffffff;
-  --color-ok: #1a7f37;
-  --color-warn: #9a6700;
-  --color-bad: #c62828;
-  --color-info: #1f5fd1;
+@theme inline {
+  --font-sans: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --font-display: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "Cascadia Mono", Consolas, ui-monospace, monospace;
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-destructive: var(--destructive);
+  --color-warning: var(--warning);
+  --color-success: var(--success);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+}
+
+:root {
+  --radius: 0.5rem;
+  --background: oklch(0.97 0.008 250);
+  --foreground: oklch(0.23 0.02 255);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.23 0.02 255);
+  --primary: oklch(0.58 0.16 150);
+  --primary-foreground: oklch(0.98 0.01 150);
+  --secondary: oklch(0.94 0.01 250);
+  --secondary-foreground: oklch(0.23 0.02 255);
+  --muted: oklch(0.94 0.01 250);
+  --muted-foreground: oklch(0.5 0.02 255);
+  --destructive: oklch(0.58 0.21 25);
+  --warning: oklch(0.6 0.14 70);
+  --success: oklch(0.58 0.16 150);
+  --border: oklch(0.9 0.01 250);
+  --input: oklch(0.9 0.01 250);
+  --ring: oklch(0.58 0.16 150);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --color-bg: #0f1216;
-    --color-surface: #161a20;
-    --color-surface-2: #1d222a;
-    --color-border: #2a313b;
-    --color-text: #e6e9ee;
-    --color-muted: #8b95a3;
-    --color-accent: #4c8dff;
-    --color-accent-fg: #0b0e12;
-    --color-ok: #3fb950;
-    --color-warn: #d29922;
-    --color-bad: #f85149;
-    --color-info: #4c8dff;
+    --background: oklch(0.129 0.042 264.695);
+    --foreground: oklch(0.984 0.003 247.858);
+    --card: oklch(0.208 0.042 265.755);
+    --card-foreground: oklch(0.984 0.003 247.858);
+    --primary: oklch(0.929 0.013 255.508);
+    --primary-foreground: oklch(0.208 0.042 265.755);
+    --secondary: oklch(0.279 0.041 260.031);
+    --secondary-foreground: oklch(0.984 0.003 247.858);
+    --muted: oklch(0.279 0.041 260.031);
+    --muted-foreground: oklch(0.704 0.04 256.788);
+    --destructive: oklch(0.704 0.191 22.216);
+    --warning: oklch(0.8 0.15 80);
+    --success: oklch(0.75 0.17 155);
+    --border: oklch(1 0 0 / 10%);
+    --input: oklch(1 0 0 / 15%);
+    --ring: oklch(0.551 0.027 264.364);
   }
 }
 
-html,
-body,
-#root {
-  height: 100%;
-}
-
-body {
-  margin: 0;
-  background: var(--color-bg);
-  color: var(--color-text);
-  font-family: var(--font-sans);
-  font-size: 13px;
-  -webkit-font-smoothing: antialiased;
-  user-select: none; /* desktop-app feel; text fields and logs re-enable it */
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+  html,
+  body,
+  #root {
+    min-height: 100%;
+  }
+  body {
+    margin: 0;
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    user-select: none; /* desktop-app feel; inputs and logs opt back in */
+  }
 }
 
 .selectable {
@@ -58,8 +102,8 @@ body {
 }
 
 :focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 1px;
+  outline: 2px solid var(--color-ring);
+  outline-offset: 2px;
 }
 
 @keyframes spin {

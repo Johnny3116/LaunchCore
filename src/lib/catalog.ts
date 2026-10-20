@@ -59,6 +59,11 @@ export const PackageSchema = z.object({
   publisher: z.string().max(100).optional(),
   category: z.string().max(40).default("General"),
   description: z.string().max(300).optional(),
+  /** Tile color, #RRGGBB. Optional — a stable color is derived from the id when omitted. */
+  color: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/, "must be a #RRGGBB hex color")
+    .optional(),
   installer: InstallerSchema,
   detection: DetectionSchema,
 });
@@ -96,6 +101,21 @@ export function parseCatalog(raw: unknown): CatalogParseResult {
     ok: false,
     errors: result.error.issues.map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`),
   };
+}
+
+// Palette from the Deploy design; used when a package has no explicit color.
+const TILE_PALETTE = [
+  "#0A84FF", "#FF9F0A", "#FF375F", "#5E5CE6", "#FF453A", "#32D74B", "#30B0C7",
+  "#32ADE6", "#A2845E", "#00C7BE", "#34C759", "#FF9500", "#BF5AF2", "#5865F2",
+  "#2D8CFF", "#AF52DE", "#14B8A6", "#7C3AED",
+] as const;
+
+/** Explicit color, or a stable pick from the palette based on the id. */
+export function tileColor(pkg: Pick<Package, "id" | "color">): string {
+  if (pkg.color) return pkg.color;
+  let h = 0;
+  for (const ch of pkg.id) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return TILE_PALETTE[h % TILE_PALETTE.length] ?? "#5E5CE6";
 }
 
 /** Compare dotted versions numerically ("24.9" vs "24.09" are equal). Non-numeric parts compare as strings. */

@@ -1,6 +1,5 @@
 import { useEffect, useRef } from "react";
-import { ShieldCheck } from "lucide-react";
-import type { Package } from "../lib/catalog";
+import { tileColor, type Package } from "../lib/catalog";
 
 type Props = { pkgs: Package[]; hostname: string; onConfirm: () => void; onCancel: () => void };
 
@@ -20,33 +19,37 @@ export function ConfirmDialog({ pkgs, hostname, onConfirm, onCancel }: Props) {
         e.preventDefault();
         onCancel();
       }}
-      className="m-auto w-[440px] rounded-lg border border-border bg-surface p-0 text-text shadow-2xl backdrop:bg-black/50"
+      className="m-auto w-[440px] rounded-lg border border-border bg-card p-0 text-card-foreground shadow-2xl backdrop:bg-black/50"
     >
-      <div className="p-5">
-        <h2 className="mb-1 text-base font-semibold">
-          Install {pkgs.length} package{pkgs.length === 1 ? "" : "s"} on <span className="font-mono">{hostname}</span>?
+      <div className="p-6">
+        <h2 className="font-display text-lg font-semibold">
+          Install {pkgs.length} app{pkgs.length === 1 ? "" : "s"} on <span className="font-mono">{hostname}</span>?
         </h2>
-        <p className="mb-4 text-xs text-muted">
-          Each installer is hash-checked first, then Windows will ask for admin approval.
+        <p className="mt-1 text-xs text-muted-foreground">
+          Each installer is hash-checked first, then Windows asks for admin approval.
         </p>
-        <ul className="mb-4 max-h-56 overflow-auto rounded-md border border-border">
+        <ul className="mt-4 max-h-56 space-y-2 overflow-auto">
           {pkgs.map((p) => (
-            <li key={p.id} className="flex justify-between border-b border-border px-3 py-2 last:border-b-0">
-              <span>{p.name}</span>
-              <span className="font-mono text-muted">{p.version}</span>
+            <li key={p.id} className="flex items-center gap-3 text-sm">
+              <span className="h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: tileColor(p) }} />
+              <span className="flex-1">{p.name}</span>
+              <span className="font-mono text-xs text-muted-foreground">{p.version}</span>
             </li>
           ))}
         </ul>
-        <div className="flex justify-end gap-2">
-          <button onClick={onCancel} className="rounded-md border border-border px-3 py-1.5 hover:bg-surface-2">
+        <div className="mt-6 flex justify-end gap-2">
+          <button
+            onClick={onCancel}
+            className="rounded-md border border-input px-4 py-2 text-sm font-medium hover:bg-secondary"
+          >
             Cancel
           </button>
           <button
             onClick={onConfirm}
             autoFocus
-            className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 font-semibold text-accent-fg"
+            className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
           >
-            <ShieldCheck size={14} /> Install
+            Install
           </button>
         </div>
       </div>

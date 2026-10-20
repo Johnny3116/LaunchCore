@@ -7,6 +7,10 @@ Portable software installer for Windows. LaunchCore runs from a flash drive or a
 **Phase 1: front end on mock data.** The UI is complete and simulates every outcome. Nothing touches the machine yet.
 **Phase 2 (next):** Rust backend commands for environment, catalog loading, detection, and install.
 
+## Design
+
+UI adapted from the "Deploy" design: brand-colored app tiles, a sticky install-queue card, IBM Plex Sans with Space Grotesk headings, and green primary. Its oklch tokens are in `src/index.css`.
+
 ## Kit layout
 
 ```
@@ -40,6 +44,7 @@ The schema lives in `src/lib/catalog.ts` and is validated with zod. A malformed 
       "name": "7-Zip",
       "version": "24.09",
       "category": "Utilities",
+      "color": "#A2845E",                // optional tile color; derived from id if omitted
       "installer": {
         "type": "msi",                    // "msi" | "exe"
         "path": "packages/7zip/7z-x64.msi",
@@ -85,5 +90,6 @@ These versions are pinned.
 - Vite 8.3.4
 - TypeScript 6.0.3
 - Tailwind 4.3.3
+- Fonts (self-hosted): @fontsource IBM Plex Sans / Space Grotesk / JetBrains Mono 5.3.0
 - zod 4.6.7
 - lucide-react 1.60.0

@@ -13,8 +13,8 @@
     "windows": [
       {
         "title": "LaunchCore",
-        "width": 1180,
-        "height": 720,
+        "width": 1280,
+        "height": 860,
         "minWidth": 900,
         "minHeight": 520
       }
